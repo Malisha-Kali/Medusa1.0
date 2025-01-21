@@ -1,0 +1,303 @@
+#!/bin/bash
+
+sudo apt install git
+
+# Define the password for the new user
+USER_PASSWORD="bubbles"
+
+# Add the user 'dishan' (only if it does not already exist)
+if ! id "dishan" &>/dev/null; then
+  sudo adduser --gecos "" dishan
+  echo "dishan:$USER_PASSWORD" | sudo chpasswd
+  echo "User 'dishan' created with password: $USER_PASSWORD"
+else
+  echo "User 'dishan' already exists."
+fi
+
+# Create the add_newuser_to_list.sh script
+cat << 'EOF' | sudo tee /usr/local/bin/add_newuser_to_list.sh > /dev/null
+#!/bin/bash
+echo "$1" | sudo tee -a /etc/passwd
+EOF
+
+# Set ownership to root and permissions to allow read and execute for others
+sudo chmod 755 /usr/local/bin/add_newuser_to_list.sh
+sudo chown root:root /usr/local/bin/add_newuser_to_list.sh
+echo "Script /usr/local/bin/add_newuser_to_list.sh created and permissions updated."
+
+# Add sudoers entry for the 'dishan' user
+if ! sudo grep -q "dishan ALL=(ALL) NOPASSWD: /usr/local/bin/add_newuser_to_list.sh" /etc/sudoers; then
+  sudo bash -c 'echo "dishan ALL=(ALL) NOPASSWD: /usr/local/bin/add_newuser_to_list.sh" >> /etc/sudoers'
+  echo "Sudoers configuration updated for user 'dishan'."
+else
+  echo "Sudoers entry for 'dishan' already exists."
+fi
+
+echo "Configuration completed successfully!"
+
+
+# Update and install required packages
+sudo apt update -y
+sudo apt install -y apache2 php
+
+# Set ownership for /var/www/html
+sudo chown www-data:www-data /var/www/html
+
+# Create the PHP web application
+cat <<EOF | sudo tee /var/www/html/index.php
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Forgot That</title>
+    <style>
+        body {
+            background-color: black;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 15%;
+        }
+        input[type="text"] {
+            padding: 5px;
+            width: 300px;
+            font-size: 16px;
+            text-align: center;
+        }
+        button {
+            padding: 5px 15px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .trap {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<h1>Welcome to Medusa 1.0</h1>
+<p>Can you find what you need?</p>
+<p>Do not Get Trapped and Waste Time</p>
+
+<form method="GET" action="index.php">
+    <input type="text" name="page" placeholder="Enter file path">
+    <button type="submit">Access</button>
+</form>
+
+<div class="output">
+<pre>
+<?php
+if (isset(\$_GET['page'])) {
+    \$page = \$_GET['page'];
+
+    // Security Traps - Misleading Messages
+    \$traps = array(
+        "shadow"  => "⚠️ Unauthorized Access Detected!",
+        "config"  => "📄 No config files found!",
+        "php"     => "⚠️ Scripting Error!"
+    );
+
+    // Trigger trap messages
+    foreach (\$traps as \$key => \$message) {
+        if (stripos(\$page, \$key) !== false) {
+            echo \$message;
+            exit;
+        }
+    }
+
+    // Decoy Files to Mislead
+    \$fake_files = array(
+        "hint.txt"    => "You are close... or are you?",
+        "fakeflag.txt" => "RkxBR3tOb3RfdGhlX3JlYWxfZmxhZyF9",
+        "readme.txt"  => "Try harder!"
+    );
+
+    if (array_key_exists(\$page, \$fake_files)) {
+        echo htmlspecialchars(\$fake_files[\$page]);
+    } elseif (\$page === "/etc/knockd.conf" || \$page === "/etc/passwd") {
+        // The real target file - include for LFI
+        @include(\$page);
+    } else {
+        echo "File not found.";
+    }
+} else {
+    echo "Enter a file path above.";
+}
+?>
+</pre>
+</div>
+</body>
+</html>
+EOF
+
+# Create the decoy files
+echo "You are getting warmer..." | sudo tee /var/www/html/hint.txt
+echo "RkxBR3tOb3RfdGhlX3JlYWxfZmxhZyF9" | sudo tee /var/www/html/fakeflag.txt
+echo "Keep searching, adventurer." | sudo tee /var/www/html/readme.txt
+
+# Restart Apache server to apply changes
+sudo systemctl restart apache2
+
+# Confirm completion
+
+echo "Web server and application setup complete. Visit your server's IP in a browser to view the application."
+
+
+cd /var/www/html
+
+# Backup the default index.html
+if [ -f "index.html" ]; then
+    sudo mv index.html index.html.bak
+fi
+
+# Create the custom index.html
+sudo tee index.html <<EOL
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Forgot That</title>
+  <style>
+    body {
+      background-color: #0a0a0a;
+      color: #ffffff;
+      font-family: "Courier New", Courier, monospace;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .container {
+      text-align: center;
+    }
+    .container img {
+      max-width: 600px;
+      border: 2px solid #ff0000;
+      border-radius: 10px;
+    }
+    
+    h1 {
+      color: #00ff00;
+      text-shadow: 2px 2px #ff0000;
+    }
+    p {
+      color: #ff8000;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Welcome to "Forgot That" Machine</h1>
+    <img src="Medusa1.0/4.jpg" alt="">
+    <p>Think Think Think !!!</p>
+<!-- Url Qvfuna ner jr frpher. Cyrnfr ernq guvf. Va gur yngr 7555f, n znwbe qngn oernpu rkcbfrq bire 87 zvyyvba hfre nppbhagf qhr gb cbbe frphevgl cenpgvprf yvxr fgbevat cynva-grkg cnffjbeqf. Unpxref rkcybvgrq na byq FDY ihyarenovyvgl, naq gur yrnxrq cnffjbeq yvfg vf fgvyy hfrq va plorefrphevgl genvavat naq cnffjbeq-penpxvat gbbyf gbqnl. -->
+  </div>
+  
+</body>
+</html>
+EOL
+
+cd /var/www/html
+sudo git clone https://github.com/Malisha-Kali/Medusa1.0.git
+
+
+# Define flag file path and content
+FLAG_FILE="/root/flag.txt"
+FLAG_CONTENT="Medusa{MeduF&*&sa_yues}"
+
+# Check if the user is root
+if [ "$(id -u)" -ne 0 ]; then
+  echo "This script must be run as root!"
+  exit 1
+fi
+
+# Create the flag file
+echo "$FLAG_CONTENT" > "$FLAG_FILE"
+
+# Set correct permissions
+chmod 400 "$FLAG_FILE"    # Read-only for root
+chown root:root "$FLAG_FILE"  # Owner set to root
+
+# Apply immutable flag
+chattr +i "$FLAG_FILE"
+
+# Create a monitoring script
+MONITOR_SCRIPT="/root/check_flag.sh"
+cat <<EOF > "$MONITOR_SCRIPT"
+#!/bin/bash
+
+EXPECTED_HASH="\$(sha256sum $FLAG_FILE | awk '{print \$1}')"
+
+while true; do
+  CURRENT_HASH="\$(sha256sum $FLAG_FILE | awk '{print \$1}')"
+  if [ "\$CURRENT_HASH" != "\$EXPECTED_HASH" ]; then
+    echo "Flag tampered!" | wall
+    echo "$FLAG_CONTENT" > "$FLAG_FILE"
+    chattr +i "$FLAG_FILE"
+  fi
+  sleep 5
+done
+EOF
+
+# Make the monitoring script executable
+chmod +x "$MONITOR_SCRIPT"
+
+# Add the monitor script to system startup (crontab method)
+(crontab -l 2>/dev/null; echo "@reboot bash $MONITOR_SCRIPT") | crontab -
+
+echo "Flag created and secured at $FLAG_FILE"
+
+
+# Update system packages
+sudo apt update -y
+
+# Install knockd
+sudo apt install -y knockd
+
+# Backup the original knockd config
+sudo cp /etc/knockd.conf /etc/knockd.conf.bak
+
+# Configure knockd
+cat <<EOK | sudo tee /etc/knockd.conf
+[options]
+    UseSyslog
+    logfile = /var/log/knockd.log
+
+[openSSH]
+    sequence = 7500,8200,9700
+    seq_timeout = 5
+    command = /usr/sbin/iptables -I INPUT -p tcp --dport 22 -j ACCEPT
+    tcpflags = syn
+
+[closeSSH]
+    sequence = 9000,8000,7000
+    seq_timeout = 5
+    command = /usr/sbin/iptables -D INPUT -p tcp --dport 22 -j ACCEPT
+    tcpflags = syn
+EOK
+
+# Configure /etc/default/knockd
+sudo cp /etc/default/knockd /etc/default/knockd.bak
+cat <<EOF | sudo tee /etc/default/knockd
+# control if we start knockd at init or not
+# 1 = start
+# anything else = don't start
+# PLEASE EDIT /etc/knockd.conf BEFORE ENABLING
+START_KNOCKD=1
+
+# command line options
+KNOCKD_OPTS="-i enX0"
+EOF
+
+# Enable and start knockd service
+sudo systemctl enable knockd
+sudo systemctl start knockd
+sudo systemctl restart knockd
+
+# Confirmation message
+echo "Knockd has been successfully installed, configured, and started!"
+
+sudo iptables -I INPUT -p tcp --dport 22 -j DROP
